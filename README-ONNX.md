@@ -15,11 +15,15 @@ To recreate the environment on your system, please install Conda / MiniConda fir
 
 Then run:
 
-  conda env create -f environment.yml
+```
+conda env create -f environment.yml
+```
 
 and
 
-  conda activate RBCs
+```
+conda activate RBCs
+```
 
 to activate the environment. This should install all necessary dependencies independently of your local Python installation and packages.
 
@@ -27,11 +31,15 @@ to activate the environment. This should install all necessary dependencies inde
 
 Make sure that the RBCs Conda environment is activated:
 
-  conda activate RBCs
+```
+conda activate RBCs
+```
 
 Then run:
 
-  python3 detect-and-predict-onnx.py
+```
+python3 detect-and-predict-onnx.py
+```
 
 This will first run the tensorflow model for RBCs and write out the model graph with weights.
 In turn, the serialized model will be parsed and converted to ONNX format.
