@@ -10,6 +10,7 @@ options = {'model': 'cfg/tiny-yolo-voc-3c.cfg',
            'gpu': 0.7}
 
 tfnet = TFNet(options)
+tfnet.savepb()
 
 pred_bb = []  # predicted bounding box
 pred_cls = []  # predicted class
