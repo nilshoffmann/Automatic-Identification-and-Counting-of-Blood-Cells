@@ -1,3 +1,5 @@
+from pathlib import Path
+import distutils
 import time
 from utils import iou
 from scipy import spatial
@@ -5,12 +7,15 @@ from darkflow.net.build import TFNet
 import cv2
 import numpy as np
 import tensorflow as tf
-import onnx
-import tf2onnx
-import onnxruntime as rt
 from darkflow.utils.im_transform import imcv2_affine_trans, imcv2_recolor
+import onnx
+import onnxruntime as rt
+import tf2onnx
+import pickle
 
-
+outDir = Path('output')
+outDir.mkdir(parents=True, exist_ok=True)
+tf.compat.v1.disable_eager_execution()
 options = {'model': 'cfg/tiny-yolo-voc-3c.cfg',
            'load': 3750,
            'threshold': 0.1,
@@ -22,8 +27,7 @@ pred_bb = []  # predicted bounding box
 pred_cls = []  # predicted class
 pred_conf = []  # predicted class confidence
 
-
-def blood_cell_count(file_name):
+def blood_cell_count(tfnet, file_name):
     rbc = 0
     wbc = 0
     platelets = 0
@@ -40,10 +44,16 @@ def blood_cell_count(file_name):
 
     tic = time.time()
     image = cv2.imread('data/' + file_name)
+    # save dictionary to person_data.pkl file
+    with open('output/meta.pkl', 'wb') as fp:
+        pickle.dump(tfnet.meta, fp)
+        print('Saved meta information to dictionary: output/meta.pkl')
+    
     output = tfnet.return_predict(image)
     print("Saving TF Model Predictions in 'yolov2-predictions.npy'")
 
     for prediction in output:
+        print(prediction)
         label = prediction['label']
         confidence = prediction['confidence']
         tl = (prediction['topleft']['x'], prediction['topleft']['y'])
@@ -123,16 +133,13 @@ def analyze_inputs_outputs(graph):
     outputs = list(outputs_set)
     return (inputs, outputs)
 
-def resize_input(im, meta):
-    imsz = cv2.resize(im, (int(meta['inp_size']['w']), int(meta['inp_size']['h'])))
-    imsz = imsz / 255.
-    imsz = imsz[:, :, ::-1]
-    return imsz
-
+# Evaluate original method and model and onnx model predictions
 image_name = 'image_001.jpg'
-blood_cell_count(image_name)
+blood_cell_count(tfnet, image_name)
 print('Saving TF model!')
 tfnet.savepb()
+
+distutils.dir_util.copy_tree('built_graph', 'output')
 
 name = 'built_graph/tiny-yolo-voc-3c.pb'
 print(f"Parsing Model {name}")
@@ -148,6 +155,9 @@ with tf.Graph().as_default() as graph:
 [inputs, outputs] = analyze_inputs_outputs(graph)
 tinputs = ["input:0"] #inputs #[str(i) + ":0" for i in inputs]
 toutputs = ["output:0"] #outputs #[str(o) + ":0" for o in outputs]
+placeholders = [ op for op in graph.get_operations() if op.type == "Placeholder"]
+print("Placeholders:")
+print(placeholders)
 
 # saving the model
 tf.compat.v1.reset_default_graph()
@@ -160,48 +170,7 @@ with tf.compat.v1.Session() as sess:
 
     model_proto = g.make_model('model_out')
     checker = onnx.checker.check_model(model_proto)
-
-    tf2onnx.utils.save_onnx_model("./", "saved_model", feed_dict={}, model_proto=model_proto)
+    # do not include a defined value for placeholder via feed_dict, we want to store the model as is, not with any set placeholders
+    tf2onnx.utils.save_onnx_model("./output/", "saved_model", feed_dict={}, model_proto=model_proto)
 
 print("Saved ONNX model to saved_model.onnx")
-
-print("Loading ONNX model from saved_model.onnx")
-# onnx_model is an in-memory ModelProto
-onnx_model = onnx.load("saved_model.onnx")
-
-# Check the model
-try:
-    onnx.checker.check_model(onnx_model)
-except onnx.checker.ValidationError as e:
-    print(f"The model is invalid: {e}")
-else:
-    print("The model is valid!")
-
-#print(onnx.helper.printable_graph(onnx_model.graph))
-
-# read test image
-print("Reading test image")
-image = cv2.imread('data/' + 'image_001.jpg')
-result = imcv2_affine_trans(image)
-im, dims, trans_param = result
-scale, offs, flip = trans_param
-im = imcv2_recolor(im)
-#output = tfnet.return_predict(image)
-h, w, _ = im.shape
-meta = {'inp_size': { 'h': 416, 'w': 416, 'c': 3} }
-image = resize_input(im, meta)
-this_inp = np.expand_dims(np.transpose(image), 0)
-
-sess = rt.InferenceSession(
-    "saved_model.onnx", providers=rt.get_available_providers())
-input_name = sess.get_inputs()[0].name
-pred_onnx = sess.run(None, {input_name: this_inp.astype(np.float32)})[0]
-for t in sess.get_inputs():
-    print("Session input:", t.name, t.type, t.shape)
-
-for t in sess.get_outputs():
-    print("Session output:", t.name, t.type, t.shape)
-print("Saving ONNX Model Predictions in 'onnx-predictions.npy'")
-#print(outputs[0].shape, type(outputs))
-#print(pred_onnx)
-np.save('onnx-predictions', pred_onnx)

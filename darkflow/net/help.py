@@ -165,7 +165,7 @@ def to_darknet(self):
     darknet_ckpt = self.darknet
 
     with self.graph.as_default() as g:
-        for var in tf.global_variables():
+        for var in tf.compat.v1.global_variables():
             name = var.name.split(':')[0]
             var_name = name.split('-')
             l_idx = int(var_name[0])
