@@ -19,21 +19,6 @@ all_summaries <- all_results |>
 
 all_summaries |> 
     dplyr::select(label, type, file_name, count) |> 
-    pivot_wider(names_from = type, values_from = count) |>
-    group_by(label, file_name) |>
-    summarize(
-        e_tf2 = abs(groundTruth - tf2),
-        e_onnx = abs(groundTruth - onnx),
-    ) |> na.omit() |> 
-    ungroup() |>
-    group_by(label) |>
-    summarize(
-        e_label_tf2 = sum(e_tf2)/n,
-        e_label_onnx = sum(e_onnx)/n,
-    )
-
-all_summaries |> 
-    dplyr::select(label, type, file_name, count) |> 
     group_by(label, type) |>
     summarize(
         totalCount = sum(count),
@@ -44,27 +29,23 @@ all_summaries |>
 crosstab <- xtabs(count~type + label + file_name, data = all_summaries)
 
 boxPlot <- ggplot() + 
-  geom_boxplot(data = all_summaries, aes(x = type, y = count, color = type)) + 
+  geom_boxplot(data = all_summaries |> filter(type %in% c('tf2','onnx')), aes(x = type, y = count, color = type)) + 
   labs(x = "Type", y = "Count", title = "RBCS Classification Counts") + 
   theme_bw() +
   facet_wrap(~file_name, ncol = 4) +
   theme(legend.position = "bottom")
 
+ggsave("output/rbcs-classification-counts.png", plot = boxPlot, width = 10, height = 14, units = "in")
+
 scatterPlot <- ggplot() + 
-  geom_point(data = all_results, aes(x = center_x, y = center_y, color = type)) + 
+  geom_point(data = all_results |> filter(type %in% c('tf2','onnx')), aes(x = center_x, y = center_y, color = type)) + 
   labs(x = "Center X", y = "Center Y", title = "RBCS Classification Centers") + 
   theme_bw() +
   facet_wrap(~label, ncol = 3) +
   theme(legend.position = "bottom")
 
-ggsave("output/rbcs-classification-centers.png", plot = scatterPlot, width = 10, height = 10, units = "in")
+ggsave("output/rbcs-classification-centers.png", plot = scatterPlot, width = 10, height = 14, units = "in")
 
-dm <- dist(select(all_results, c("center_x","center_y")), method = "euclidean")
-hclust <- hclust(na.omit(dm), method = "ward.D2")
-
-xtabs <- xtabs(~type, data =all_results)
-
-plot(hclust, hang = -1)
 center_tf <- as.matrix(
         select(tf_results, c("center_x","center_y"))
     )
