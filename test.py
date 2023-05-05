@@ -1,6 +1,8 @@
 import os
 import cv2
 import time
+
+from pandas import DataFrame
 from utils import iou
 from scipy import spatial
 from darkflow.net.build import TFNet
@@ -16,6 +18,8 @@ avg_time = 0
 pred_bb = []  # predicted bounding box
 pred_cls = []  # predicted class
 pred_conf = []  # predicted class confidence
+
+class_data = []
 
 directory = 'dataset/Testing/Images/'
 
@@ -97,6 +101,9 @@ for file_name in os.listdir(directory):
 
         conf.append(confidence)
 
+        df_row = {'type':'tf2','file_name':file_name, 'label':label, 'center_x':center_x, 'center_y':center_y, 'radius':radius, 'confidence':confidence}
+        class_data.append(df_row)
+
     pred_bb.append(cell)
     pred_cls.append(cls)
     pred_conf.append(conf)
@@ -108,3 +115,6 @@ avg_time = avg_time / 60
 
 print('Mean time: {0:.5}'.format(avg_time), 'ms')
 print('All Done!')
+
+df = DataFrame(class_data)
+df.to_csv('output/rbcs-tf-Testing.csv', index=False)

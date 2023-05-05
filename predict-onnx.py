@@ -1,6 +1,10 @@
+from itertools import chain
+import os
 from pathlib import Path
 import pickle
 import time
+
+from pandas import DataFrame
 from utils import iou
 from scipy import spatial
 from darkflow.net.build import TFNet
@@ -28,7 +32,7 @@ def process_box(meta, b, h, w, threshold):
     max_prob = b.probs[max_indx]
     label = meta['labels'][max_indx]
     
-    print("x=%.2f w=%.2f y=%.2f h=%.2f"%(b.x, b.w, b.y, b.h))
+    #print("x=%.2f w=%.2f y=%.2f h=%.2f"%(b.x, b.w, b.y, b.h))
     if max_prob > threshold:
         left = int((b.y - b.h / 2.) * w)
         right = int((b.y + b.h / 2.) * w)
@@ -88,13 +92,13 @@ def return_predict_onnx(meta, onnx_model_file_name, im, options):
     #print(pred_onnx)
     np.save('output/onnx-predictions', onnx_out)
     #im = tfnet.framework.resize_input(im)
-    print(len(onnx_out))
-    print(onnx_out[0].shape)
+    #print(len(onnx_out))
+    #print(onnx_out[0].shape)
     boxes = findboxes(meta=meta, net_out=np.squeeze(onnx_out[0]))
     threshold = options['threshold']
     boxesInfo = list()
     for box in boxes:
-        print(box)
+        #print(box)
         tmpBox = process_box(meta, box, w, h, threshold)
         if tmpBox is None:
             continue
@@ -110,7 +114,7 @@ def return_predict_onnx(meta, onnx_model_file_name, im, options):
         })
     return boxesInfo
 
-def blood_cell_count_onnx(file_name, meta_file, options):
+def blood_cell_count_onnx(img_dir, file_name, meta_file, options):
 
     onnx_model_file_name = options['model']
 
@@ -152,10 +156,12 @@ def blood_cell_count_onnx(file_name, meta_file, options):
     iou_ = []
     iou_value = 0
 
+    class_data = []
+
     # read test image
     print("Reading test image")
     tic = time.time()
-    image = cv2.imread('data/' + file_name)
+    image = cv2.imread(img_dir+'/'+file_name)
     
     output = return_predict_onnx(meta=meta, onnx_model_file_name='output/saved_model.onnx', im=image, options=options)
 
@@ -221,6 +227,8 @@ def blood_cell_count_onnx(file_name, meta_file, options):
             cls.append(2)
 
         conf.append(confidence)
+        df_row = {'type':'onnx','file_name':file_name, 'label':label, 'center_x':center_x, 'center_y':center_y, 'radius':radius, 'confidence':confidence}
+        class_data.append(df_row)
 
     toc = time.time()
     pred_bb.append(cell)
@@ -230,7 +238,15 @@ def blood_cell_count_onnx(file_name, meta_file, options):
     print('{0:.5}'.format(avg_time), 'ms')
 
     cv2.imwrite('output/onnx-' + file_name, timg)
+    return class_data
 
 # Evaluate original method and model and onnx model predictions
+blood_cell_count_onnx('data','image_001.jpg', 'output/meta.pkl', options)
 
-blood_cell_count_onnx('image_001.jpg', 'output/meta.pkl', options)
+# directory = 'dataset/Testing/Images/'
+# class_data = []
+# for file_name in os.listdir(directory):
+#     class_data.append(blood_cell_count_onnx(directory, file_name, 'output/meta.pkl', options))
+
+# df = DataFrame([item for sub_list in class_data for item in sub_list])
+# df.to_csv('output/rbcs-onnx-Testing.csv', index=False)

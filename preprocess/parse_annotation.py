@@ -40,6 +40,9 @@ def parse_annotation(ann_dir, labels=None):
                         if 'ymax' in dim.tag:
                             obj['ymax'] = int(round(float(dim.text)))
 
+                    obj['center_x'] = (obj['xmax'] - obj['xmin'])/2.0
+                    obj['center_y'] = (obj['ymax'] - obj['ymin'])/2.0
+
     if len(img['object']) > 0:
         all_imgs += [img]
 
