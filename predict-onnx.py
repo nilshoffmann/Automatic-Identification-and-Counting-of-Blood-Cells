@@ -241,12 +241,12 @@ def blood_cell_count_onnx(img_dir, file_name, meta_file, options):
     return class_data
 
 # Evaluate original method and model and onnx model predictions
-blood_cell_count_onnx('data','image_001.jpg', 'output/meta.pkl', options)
+# blood_cell_count_onnx('data','image_001.jpg', 'output/meta.pkl', options)
 
-# directory = 'dataset/Testing/Images/'
-# class_data = []
-# for file_name in os.listdir(directory):
-#     class_data.append(blood_cell_count_onnx(directory, file_name, 'output/meta.pkl', options))
+directory = 'data'
+class_data = []
+for file_name in os.listdir(directory):
+    class_data.append(blood_cell_count_onnx(directory, file_name, 'output/meta.pkl', options))
 
-# df = DataFrame([item for sub_list in class_data for item in sub_list])
-# df.to_csv('output/rbcs-onnx-Testing.csv', index=False)
+df = DataFrame([item for sub_list in class_data for item in sub_list])
+df.to_csv('output/rbcs-onnx.csv', index=False)
